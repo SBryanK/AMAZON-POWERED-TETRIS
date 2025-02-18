@@ -1,0 +1,65 @@
+## Local Development
+
+### Requirements
+- Node.js (16+)
+- Python (3.10+)
+- Docker (optional)
+
+### Steps
+1. **Backend**:
+   ```bash
+   cd backend
+   pip install -r requirements.txt
+   uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+Backend runs at http://localhost:8000.
+
+2. **Frontend**:
+bash
+
+cd frontend
+npm install
+npm run dev
+Frontend runs at http://localhost:3000.
+Open http://localhost:3000 to try the Tetris game.
+
+3. **Docker Usage**
+Build & Run Locally
+Backend
+docker build -t tetris-backend -f backend/Dockerfile.backend .
+docker run -p 8000:8000 tetris-backend
+
+Frontend
+docker build -t tetris-frontend -f frontend/Dockerfile.frontend .
+docker run -p 8080:80 tetris-frontend
+
+Visit http://localhost:8080 to see the game.
+
+4. **Deploying to AWS ECS**
+1) Push Images to ECR
+Create ECR repos: tetris-backend, tetris-frontend.
+
+Tag & push:
+docker tag tetris-backend:latest <aws_acct_id>.dkr.ecr.<region>.amazonaws.com/tetris-backend:latest
+docker push <aws_acct_id>.dkr.ecr.<region>.amazonaws.com/tetris-backend:latest
+
+docker tag tetris-frontend:latest <aws_acct_id>.dkr.ecr.<region>.amazonaws.com/tetris-frontend:latest
+docker push <aws_acct_id>.dkr.ecr.<region>.amazonaws.com/tetris-frontend:latest
+
+2) CloudFormation
+In infrastructure/cloudformation/tetris-ecs.yaml, we define:
+VPC, Subnets, ALB, ECS Cluster, TaskDefinition (2 containers), Service.
+Open AWS CloudFormation console > Create stack > Upload tetris-ecs.yaml > provide parameters:
+TetrisBackendImage: e.g. 123456789012.dkr.ecr.us-east-1.amazonaws.com/tetris-backend:latest
+TetrisFrontendImage: e.g. 123456789012.dkr.ecr.us-east-1.amazonaws.com/tetris-frontend:latest
+Wait for stack to complete.
+
+3) Access the App
+After stack creation, check CloudFormation Outputs => ALBPublicDNS.
+Open that DNS in your browser => you should see Tetris front end.
+The front end calls the backend internally in ECS (port 8000).
+Extending with a Real Database
+If you want scoreboard persistence, integrate e.g. PostgreSQL on AWS RDS, replace in-memory logic in main.py with SQLAlchemy.
+Pass the DB connection via environment variables in ECS.
+
+License / Contribution
+Feel free to adapt or expand. This project is for educational demonstration of full-stack + CV + AWS deployment.
