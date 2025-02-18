@@ -1,0 +1,27 @@
+# Dockerfile.backend
+FROM python:3.10-slim
+
+# 1. Install system dependencies needed by OpenCV
+RUN apt-get update && apt-get install -y \
+    libgl1-mesa-glx \
+    libglib2.0-0 \
+    libsm6 \
+    libxext6 \
+    libxrender-dev \
+    && rm -rf /var/lib/apt/lists/*
+# 2. Create app directory
+WORKDIR /app
+
+# 3. Copy your requirements
+COPY requirements.txt ./
+RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install 'uvicorn[standard]'
+
+# 4. Copy the rest of your backend code
+COPY . .
+
+# 5. Expose port 8000
+EXPOSE 8000
+
+# 6. Run your uvicorn command
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]

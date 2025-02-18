@@ -1,0 +1,42 @@
+.modal-overlay {
+  position: fixed;
+  top: 0; left: 0;
+  width: 100vw; height: 100vh;
+  background: rgba(0,0,0,0.7);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 9999;
+}
+
+.modal-box {
+  background: #fff;
+  color: #000;
+  padding: 40px; /* bigger box */
+  border-radius: 15px;
+  width: 500px; /* bigger width */
+  text-align: center;
+}
+
+.modal-box h2 {
+  font-family: 'FreakOfNature', sans-serif;
+  font-size: 2.5rem;
+  margin-bottom: 15px;
+}
+
+.instructions-text {
+  font-family: 'FreakOfNature', sans-serif;
+  font-size: 1.5rem; /* bigger text */
+  margin-bottom: 20px;
+  line-height: 1.4;
+}
+
+.close-btn {
+  background: #d00;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 12px 24px;
+  font-size: 1.2rem;
+  cursor: pointer;
+}

@@ -1,0 +1,196 @@
+AWSTemplateFormatVersion: '2025-02-25'
+Description: Amazon Power Tetris(APT)
+
+Parameters:
+  VpcCidr:
+    Type: String
+    Default: "10.0.0.0/16"
+  TetrisBackendImage:
+    Type: String
+    Description: 123456789012.dkr.ecr.us-east-1.amazonaws.com/tetris-backend:latest
+  TetrisFrontendImage:
+    Type: String
+    Description: 123456789012.dkr.ecr.us-east-1.amazonaws.com/tetris-frontend:latest
+
+Resources:
+  # 1) Create VPC
+  TetrisVPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: !Ref VpcCidr
+      EnableDnsSupport: true
+      EnableDnsHostnames: true
+      Tags:
+        - Key: Name
+          Value: TetrisVPC
+
+  # 2) Subnets
+  TetrisSubnet1:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref TetrisVPC
+      CidrBlock: 10.0.1.0/28
+      AvailabilityZone: !Select [0, !GetAZs '']
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: TetrisSubnet1
+
+  TetrisSubnet2:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref TetrisVPC
+      CidrBlock: 10.0.2.0/28
+      AvailabilityZone: !Select [1, !GetAZs '']
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: TetrisSubnet2
+
+  # 3) Internet Gateway, Route Table, etc.
+  TetrisIGW:
+    Type: AWS::EC2::InternetGateway
+
+  AttachIGW:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      VpcId: !Ref TetrisVPC
+      InternetGatewayId: !Ref TetrisIGW
+
+  TetrisRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref TetrisVPC
+
+  TetrisRoute:
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId: !Ref TetrisRouteTable
+      DestinationCidrBlock: "0.0.0.0/0"
+      GatewayId: !Ref TetrisIGW
+
+  TetrisSubnet1RouteTableAssoc:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref TetrisRouteTable
+      SubnetId: !Ref TetrisSubnet1
+
+  TetrisSubnet2RouteTableAssoc:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref TetrisRouteTable
+      SubnetId: !Ref TetrisSubnet2
+
+  # 4) ECS Cluster
+  TetrisCluster:
+    Type: AWS::ECS::Cluster
+    Properties:
+      ClusterName: "TetrisCluster"
+
+  # 5) ALB
+  TetrisALBSG:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: ALB SG
+      VpcId: !Ref TetrisVPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+
+  TetrisALB:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      Name: "TetrisALB"
+      Subnets:
+        - !Ref TetrisSubnet1
+        - !Ref TetrisSubnet2
+      SecurityGroups:
+        - !Ref TetrisALBSG
+
+  TetrisALBListener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      LoadBalancerArn: !Ref TetrisALB
+      Port: 80
+      Protocol: HTTP
+      DefaultActions:
+        - Type: fixed-response
+          FixedResponseConfig:
+            StatusCode: "200"
+            ContentType: "text/plain"
+            MessageBody: "Tetris ALB default"
+  
+  # 6) Task Definition with 2 containers
+  TetrisTaskDefinition:
+    Type: AWS::ECS::TaskDefinition
+    Properties:
+      Family: "TetrisTaskDef"
+      RequiresCompatibilities: ["FARGATE"]
+      Cpu: "512"
+      Memory: "1024"
+      NetworkMode: "awsvpc"
+      ContainerDefinitions:
+        - Name: "tetris-backend"
+          Image: !Ref TetrisBackendImage
+          PortMappings:
+            - ContainerPort: 8000
+          Essential: true
+        - Name: "tetris-frontend"
+          Image: !Ref TetrisFrontendImage
+          PortMappings:
+            - ContainerPort: 80
+          Essential: true
+      ExecutionRoleArn: "arn:aws:iam::123456789012:role/ecsTaskExecutionRole"
+
+  # 7) Target group for the FRONTEND container
+  TetrisTG:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      Name: "TetrisFrontendTG"
+      Port: 80
+      Protocol: HTTP
+      VpcId: !Ref TetrisVPC
+      TargetType: ip
+      HealthCheckPath: "/"
+
+  # Link the ALB listener to the TG
+  TetrisALBListenerRule:
+    Type: AWS::ElasticLoadBalancingV2::ListenerRule
+    Properties:
+      ListenerArn: !Ref TetrisALBListener
+      Priority: 1
+      Actions:
+        - Type: forward
+          TargetGroupArn: !Ref TetrisTG
+      Conditions:
+        - Field: "path-pattern"
+          Values: ["*"]
+
+  # 8) ECS Service
+  TetrisService:
+    Type: AWS::ECS::Service
+    Properties:
+      ServiceName: "TetrisService"
+      Cluster: !Ref TetrisCluster
+      TaskDefinition: !Ref TetrisTaskDefinition
+      DesiredCount: 1
+      LaunchType: FARGATE
+      NetworkConfiguration:
+        AwsvpcConfiguration:
+          AssignPublicIp: ENABLED
+          Subnets:
+            - !Ref TetrisSubnet1
+            - !Ref TetrisSubnet2
+          SecurityGroups:
+            - !Ref TetrisALBSG
+      LoadBalancers:
+        - ContainerName: "tetris-frontend"
+          ContainerPort: 80
+          TargetGroupArn: !Ref TetrisTG
+
+Outputs:
+  ALBPublicDNS:
+    Description: "Public DNS of the Tetris Load Balancer"
+    Value: !GetAtt TetrisALB.DNSName

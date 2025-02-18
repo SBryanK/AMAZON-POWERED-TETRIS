@@ -1,0 +1,126 @@
+@font-face {
+  font-family: 'FreakOfNature';
+  src: url('../fonts/FREAKOFNATURE.ttf') format('truetype');
+}
+
+.home-container {
+  width: 100vw;
+  height: 100vh;
+  background: url('../img/TetrisRegPage.jpg') no-repeat center center;
+  background-size: cover;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.header-title {
+  text-align: center;
+  margin-bottom: 20px;
+}
+
+.main-title {
+  font-family: 'FreakOfNature', sans-serif;
+  font-size: 8rem; /* 30% bigger than 4rem => 5.2rem if you want exact 30% inc */
+  color: #fff;
+  margin: 0;
+}
+
+.subtitle {
+  font-family: 'FreakOfNature', sans-serif;
+  font-size: 2.5rem; /* also 30% bigger than 2rem => 2.6rem */
+  color: #a257cd;
+  margin: 12px 0 20px 0;
+}
+
+.form-box {
+  background: rgba(0,0,0,0.7);
+  padding: 70px; /* 30% bigger than 30px => 39-40px */
+  border-radius: 15px;
+  height: auto;
+  width: auto; /* 30% bigger than 400 => 520 approx */
+  text-align: center;
+}
+
+.enter-name-title {
+  font-family: 'FreakOfNature', sans-serif;
+  font-size: 3rem;
+  color: #fff;
+  margin-bottom: 10px;
+  margin-top: 5px;
+
+}
+
+.form-box input {
+  width: 80%;
+  padding: 12px;
+  font-size: 1.3rem;
+  border: 2px solid #ccc;
+  border-radius: 8px;
+  margin-bottom: 10px;
+  text-align: center;
+}
+
+.error-msg {
+  color: red;
+  font-size: 1rem;
+  margin-bottom: 10px;
+}
+
+.form-box button {
+  background: #333;
+  color: #fff;
+  padding: 12px 24px;
+  border: none;
+  border-radius: 8px;
+  font-size: 1.3rem;
+  cursor: pointer;
+  margin-bottom: 20px;
+}
+
+.scoreboard-box {
+  background: #222;
+  padding: 20px;
+  border-radius: 10px;
+  max-height: 200px;
+  overflow-y: auto;
+  color: #fff;
+  margin-top: 20px;
+  font-size: 1.2rem;
+}
+
+.score-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.score-table th,
+.score-table td {
+  padding: 8px 12px;
+  text-align: center;
+}
+
+.score-table thead {
+  background: #444;
+}
+
+.no-score {
+  font-size: 1.2rem;
+}
+
+.help-icon {
+  position: absolute;
+  top: 40px; /* bigger offset from top */
+  right: 40px; /* bigger offset from right */
+  background: rgba(255,255,255,0.2);
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+  color: #fff;
+  font-family: 'FreakOfNature', sans-serif;
+  font-size: 2rem;
+  line-height: 50px;
+  text-align: center;
+  cursor: pointer;
+}

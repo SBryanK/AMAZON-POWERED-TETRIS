@@ -1,0 +1,116 @@
+.game-container {
+  display: flex;
+  width: 100vw;
+  height: 100vh;
+  background: #000;
+  position: relative;
+  overflow: hidden; /* we keep it, but we ensure no items go out of container */
+}
+
+/* Tetris panel is 30% width, with Tetris board + Pause button fully visible */
+.tetris-panel {
+  width: 30%;
+  height: 100%;
+  background: #000;
+  display: flex;
+  flex-direction: column; /* Tetris on top, button below */
+  align-items: center;
+  justify-content: flex-start;
+  position: relative; /* for absolute-position if needed */
+}
+
+/* Tetris board from Tetris component will fill the top portion,
+   the Pause button is below it. We might also give the Tetris board
+   a fixed or flexible height. For example: */
+.tetris-panel > div {
+  /* if needed, ensure Tetris board fits the top portion */
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* The Pause button at the bottom or just below the board */
+.pause-btn {
+  background: #666;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 10px 70px;
+  font-size: 3rem;
+  cursor: pointer;
+  margin-bottom: 20px; /* some spacing from bottom */
+}
+
+/* Right side container: 70% for camera + top bar */
+.right-container {
+  width: 70%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Top bar with Score, Next, Time horizontally */
+.top-bar {
+  height: 80px;
+  background: #111;
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
+  padding: 10px 30px;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.5);
+  z-index: 100;
+}
+
+.top-item {
+  color: #fff;
+  font-family: 'FreakOfNature', sans-serif;
+  font-size: 1.8rem;
+  font-weight: bold;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.next-item {
+  width: 140px; /* bigger so the next piece is more visible */
+  text-align: center;
+}
+
+/* The camera feed below the top bar */
+.camera-panel {
+  flex: 1;
+  background: #222;
+  position: relative;
+  overflow: visible; /* ensure we see the bottom "DOWN" button */
+}
+
+/* The game over overlay remains the same */
+.game-over-overlay {
+  position: absolute;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  background: rgba(0,0,0,0.95);
+  color: #fff;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  z-index: 9999;
+  font-family: 'FreakOfNature', sans-serif;
+}
+
+.game-over-overlay h1 {
+  font-size: 3rem;
+  margin-bottom: 20px;
+}
+.game-over-overlay button {
+  background: #333;
+  color: #fff;
+  border: none;
+  padding: 12px 25px;
+  border-radius: 10px;
+  font-size: 1.2rem;
+  margin-top: 15px;
+  cursor: pointer;
+}
