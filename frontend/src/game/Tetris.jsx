@@ -8,8 +8,8 @@ import { useInterval } from './hooks/useInterval'
 import Stage from './components/Stage'
 import { StyledTetrisWrapper, StyledTetris } from './components/styles/StyledTetris'
 
-const NORMAL_DROP = 700
-const SOFT_DROP = 400
+const NORMAL_DROP = 850
+const SOFT_DROP = 600
 
 const Tetris = forwardRef(({
   onScoreUpdate,
