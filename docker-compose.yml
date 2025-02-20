@@ -1,0 +1,32 @@
+version: "4.0"
+
+services:
+  tetris-backend:
+    build:
+      context: .
+      dockerfile: ./backend/Dockerfile.backend
+    container_name: tetris-backend
+    ports:
+      - "8000:8000"
+    networks:
+      - tetris-net
+    environment:
+      TZ: "UTC"
+
+  tetris-frontend:
+    build:
+      context: .
+      dockerfile: ./frontend/Dockerfile.frontend
+    container_name: tetris-frontend
+    ports:
+      - "8080:80"
+    networks:
+      - tetris-net
+    depends_on:
+      - tetris-backend
+    environment:
+      TZ: "UTC"
+
+networks:
+  tetris-net:
+    driver: bridge
