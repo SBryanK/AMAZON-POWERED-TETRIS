@@ -28,6 +28,9 @@ app.add_middleware(
 )
 
 # In-memory scoreboard up to top 10
+# Each entry is (score, name); we maintain a min-heap so the
+# smallest score is at the root.  When more than 10 scores are stored
+# we replace the smallest, ensuring we keep only the top scores.
 scoreboard_heap = []
 
 class ScoreItem(BaseModel):
@@ -41,19 +44,19 @@ def root():
 
 @app.get("/scoreboard")
 def get_scoreboard():
-    # return up to top 10
-    sorted_scores = sorted(scoreboard_heap, key=lambda x: x[0])
-    top_scores = []
-    for sc, nm in sorted_scores[:10]:
-        top_scores.append({"name": nm, "score": -sc})
+    """Return the stored high scores sorted from highest to lowest."""
+    sorted_scores = sorted(scoreboard_heap, key=lambda x: x[0], reverse=True)
+    top_scores = [{"name": name, "score": score} for score, name in sorted_scores]
     return {"topScores": top_scores}
 
 @app.post("/scoreboard")
 def post_scoreboard(item: ScoreItem):
-    # push (neg score, name)
-    heapq.heappush(scoreboard_heap, (-item.score, item.name))
-    if len(scoreboard_heap) > 10:
-        heapq.heappop(scoreboard_heap)
+    """Insert a new score keeping only the top 10 highest scores."""
+    entry = (item.score, item.name)
+    if len(scoreboard_heap) < 10:
+        heapq.heappush(scoreboard_heap, entry)
+    elif item.score > scoreboard_heap[0][0]:
+        heapq.heapreplace(scoreboard_heap, entry)
     return JSONResponse({"message": "Score saved"})
 
 @app.websocket("/ws")

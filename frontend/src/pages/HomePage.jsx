@@ -36,7 +36,7 @@ const HomePage=()=>{
   const startGame=()=>{
     // disallow "anonymous"
     const nm = playerName.trim()
-    if(!nm || nm.toLowerCase()===''){
+    if(!nm || nm.toLowerCase()==='anonymous'){
       setErrorMsg('Name cannot be empty or "anonymous"!')
       return
     }
