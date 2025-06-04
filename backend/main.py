@@ -28,6 +28,7 @@ app.add_middleware(
 )
 
 # In-memory scoreboard up to top 10
+# scoreboard_heap stores (score, name) as a min-heap
 scoreboard_heap = []
 
 class ScoreItem(BaseModel):
@@ -41,7 +42,8 @@ def root():
 
 @app.get("/scoreboard")
 def get_scoreboard():
-    # return up to top 10 highest scores in descending order
+    # return top 10 scores in descending order
+
     sorted_scores = sorted(scoreboard_heap, key=lambda x: x[0], reverse=True)
     top_scores = []
     for sc, nm in sorted_scores[:10]:
@@ -50,10 +52,11 @@ def get_scoreboard():
 
 @app.post("/scoreboard")
 def post_scoreboard(item: ScoreItem):
-    # push (score, name) and keep only top 10
+
+    # Push score/name pair and keep only the top 10
     heapq.heappush(scoreboard_heap, (item.score, item.name))
     if len(scoreboard_heap) > 10:
-        # removes the lowest score
+        # Remove the lowest score so only the highest remain
         heapq.heappop(scoreboard_heap)
     return JSONResponse({"message": "Score saved"})
 
