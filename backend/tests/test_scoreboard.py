@@ -32,3 +32,4 @@ def test_scoreboard_top_10():
     assert scores == sorted(scores, reverse=True)
     assert scores[0] == 14
     assert scores[-1] == 5
+
