@@ -46,7 +46,8 @@ def root():
 @app.get("/scoreboard")
 def get_scoreboard():
 
-    """Return the stored high scores sorted from highest to lowest."""
+    # return top 10 scores in descending order
+
     sorted_scores = sorted(scoreboard_heap, key=lambda x: x[0], reverse=True)
     top_scores = [{"name": name, "score": score} for score, name in sorted_scores]
 
@@ -55,12 +56,12 @@ def get_scoreboard():
 @app.post("/scoreboard")
 def post_scoreboard(item: ScoreItem):
 
-    """Insert a new score keeping only the top 10 highest scores."""
-    entry = (item.score, item.name)
-    if len(scoreboard_heap) < 10:
-        heapq.heappush(scoreboard_heap, entry)
-    elif item.score > scoreboard_heap[0][0]:
-        heapq.heapreplace(scoreboard_heap, entry)
+
+    # Push score/name pair and keep only the top 10
+    heapq.heappush(scoreboard_heap, (item.score, item.name))
+    if len(scoreboard_heap) > 10:
+        # Remove the lowest score so only the highest remain
+        heapq.heappop(scoreboard_heap)
 
     return JSONResponse({"message": "Score saved"})
 
