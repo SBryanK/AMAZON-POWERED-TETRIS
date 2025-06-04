@@ -12,6 +12,11 @@
    pip install -r requirements.txt
    uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 Backend runs at http://localhost:8000.
+Run backend tests with:
+```bash
+pytest
+```
+
 
 2. **Frontend**:
 bash
