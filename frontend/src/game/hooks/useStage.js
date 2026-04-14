@@ -40,7 +40,8 @@ export const useStage = (player, resetPlayer) => {
 
       // Then check if we collided
       if (player.collided) {
-        resetPlayer()
+        // Don't call resetPlayer() here — Tetris.jsx manages piece spawning
+        // via its own nextShape queue to avoid the dual-spawning race condition.
         return sweepRows(newStage)
       }
       return newStage

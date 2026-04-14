@@ -12,10 +12,12 @@
 .modal-box {
   background: #fff;
   color: #000;
-  padding: 40px; /* bigger box */
+  padding: 40px;
   border-radius: 15px;
-  width: 500px; /* bigger width */
-  text-align: center;
+  width: 580px;
+  max-height: 85vh;
+  overflow-y: auto;
+  text-align: left;
 }
 
 .modal-box h2 {
@@ -26,9 +28,9 @@
 
 .instructions-text {
   font-family: 'FreakOfNature', sans-serif;
-  font-size: 1.5rem; /* bigger text */
-  margin-bottom: 20px;
-  line-height: 1.4;
+  font-size: 1.2rem;
+  margin-bottom: 16px;
+  line-height: 1.5;
 }
 
 .close-btn {

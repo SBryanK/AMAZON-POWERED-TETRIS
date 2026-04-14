@@ -1,48 +1,56 @@
+/* ===== Game Container ===== */
 .game-container {
   display: flex;
   width: 100vw;
   height: 100vh;
   background: #000;
   position: relative;
-  overflow: hidden; /* we keep it, but we ensure no items go out of container */
+  overflow: hidden;
+  transition: background 0.3s;
+}
+.game-container.line-flash {
+  background: #1a1a2e;
 }
 
-/* Tetris panel is 30% width, with Tetris board + Pause button fully visible */
+/* ===== Tetris Panel (Left 30%) ===== */
 .tetris-panel {
   width: 30%;
   height: 100%;
   background: #000;
   display: flex;
-  flex-direction: column; /* Tetris on top, button below */
+  flex-direction: column;
   align-items: center;
   justify-content: flex-start;
-  position: relative; /* for absolute-position if needed */
+  position: relative;
 }
-
-/* Tetris board from Tetris component will fill the top portion,
-   the Pause button is below it. We might also give the Tetris board
-   a fixed or flexible height. For example: */
-.tetris-panel > div {
-  /* if needed, ensure Tetris board fits the top portion */
+.tetris-panel > div:first-child {
   flex: 1;
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
-/* The Pause button at the bottom or just below the board */
-.pause-btn {
-  background: #666;
+.panel-buttons {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+.pause-btn, .sound-btn {
+  background: #333;
   color: #fff;
-  border: none;
+  border: 2px solid #555;
   border-radius: 8px;
-  padding: 10px 70px;
-  font-size: 3rem;
+  padding: 8px 24px;
+  font-size: 1.5rem;
   cursor: pointer;
-  margin-bottom: 20px; /* some spacing from bottom */
+  transition: background 0.2s, transform 0.1s;
+}
+.pause-btn:hover, .sound-btn:hover {
+  background: #555;
+  transform: scale(1.05);
 }
 
-/* Right side container: 70% for camera + top bar */
+/* ===== Right Container (70%) ===== */
 .right-container {
   width: 70%;
   height: 100%;
@@ -50,42 +58,98 @@
   flex-direction: column;
 }
 
-/* Top bar with Score, Next, Time horizontally */
+/* ===== Top Bar ===== */
 .top-bar {
-  height: 80px;
-  background: #111;
+  min-height: 70px;
+  background: linear-gradient(180deg, #1a1a2e 0%, #111 100%);
   display: flex;
   align-items: center;
   justify-content: space-around;
-  padding: 10px 30px;
-  box-shadow: 0 2px 5px rgba(0,0,0,0.5);
+  padding: 8px 20px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.6);
   z-index: 100;
+  flex-wrap: wrap;
+  gap: 8px;
 }
-
 .top-item {
   color: #fff;
   font-family: 'FreakOfNature', sans-serif;
-  font-size: 1.8rem;
+  font-size: 1.2rem;
   font-weight: bold;
   display: flex;
   align-items: center;
   justify-content: center;
+  gap: 6px;
+}
+.label-text {
+  font-size: 0.9rem;
+  color: #888;
+  margin-right: 4px;
+}
+.empty-box {
+  color: #444;
+  font-size: 1.5rem;
+}
+.mode-item {
+  background: rgba(162, 87, 205, 0.3);
+  padding: 4px 12px;
+  border-radius: 6px;
+  font-size: 1rem;
+  color: #a257cd;
+}
+.lines-item {
+  color: #4caf50;
 }
 
-.next-item {
-  width: 140px; /* bigger so the next piece is more visible */
-  text-align: center;
-}
-
-/* The camera feed below the top bar */
+/* ===== Camera Panel ===== */
 .camera-panel {
   flex: 1;
   background: #222;
   position: relative;
-  overflow: visible; /* ensure we see the bottom "DOWN" button */
+  overflow: visible;
 }
 
-/* The game over overlay remains the same */
+/* ===== WebSocket Status ===== */
+.ws-status {
+  font-size: 1rem;
+  padding: 4px 8px;
+  border-radius: 12px;
+}
+.ws-status.connected { color: #4caf50; }
+.ws-status.disconnected {
+  color: #f44336;
+  animation: blink 1s infinite;
+}
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+/* ===== Pause Overlay ===== */
+.pause-overlay {
+  position: absolute;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  background: rgba(0,0,0,0.85);
+  color: #fff;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  z-index: 9998;
+  font-family: 'FreakOfNature', sans-serif;
+}
+.pause-overlay h1 {
+  font-size: 4rem;
+  color: #a257cd;
+  margin-bottom: 10px;
+}
+.pause-overlay p {
+  font-size: 1.2rem;
+  color: #888;
+}
+
+/* ===== Game Over Overlay ===== */
 .game-over-overlay {
   position: absolute;
   top: 0; left: 0;
@@ -99,18 +163,84 @@
   z-index: 9999;
   font-family: 'FreakOfNature', sans-serif;
 }
-
 .game-over-overlay h1 {
   font-size: 3rem;
+  margin-bottom: 10px;
+  color: #e74c3c;
+}
+.final-score {
+  font-size: 2rem;
+  color: #f1c40f;
   margin-bottom: 20px;
 }
-.game-over-overlay button {
-  background: #333;
+.game-over-buttons {
+  display: flex;
+  gap: 12px;
+  margin-top: 20px;
+}
+.game-over-buttons button {
+  background: #222;
   color: #fff;
-  border: none;
-  padding: 12px 25px;
+  border: 2px solid #444;
+  padding: 12px 24px;
   border-radius: 10px;
-  font-size: 1.2rem;
-  margin-top: 15px;
+  font-size: 1.1rem;
   cursor: pointer;
+  transition: background 0.2s, border-color 0.2s, transform 0.1s;
+}
+.game-over-buttons button:hover {
+  background: #333;
+  border-color: #a257cd;
+  transform: scale(1.05);
+}
+
+/* ===== Stats Grid ===== */
+.stats-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin: 20px 0;
+  min-width: 300px;
+}
+.stat-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background: rgba(255,255,255,0.05);
+  padding: 12px;
+  border-radius: 8px;
+}
+.stat-label {
+  font-size: 0.9rem;
+  color: #888;
+  margin-bottom: 4px;
+}
+.stat-value {
+  font-size: 1.8rem;
+  color: #f1c40f;
+}
+
+/* ===== Mobile Responsive ===== */
+@media (max-width: 768px) {
+  .game-container {
+    flex-direction: column;
+  }
+  .tetris-panel {
+    width: 100%;
+    height: 60%;
+  }
+  .right-container {
+    width: 100%;
+    height: 40%;
+  }
+  .top-bar {
+    min-height: 50px;
+    padding: 4px 10px;
+  }
+  .top-item {
+    font-size: 0.9rem;
+  }
+  .camera-panel {
+    display: none; /* Hide camera on mobile */
+  }
 }
