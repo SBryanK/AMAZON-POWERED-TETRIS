@@ -117,10 +117,17 @@ _rate_store: dict[str, list[float]] = defaultdict(list)
 
 def _check_rate_limit(client_ip: str) -> bool:
     now = time.time()
-    _rate_store[client_ip] = [t for t in _rate_store[client_ip] if now - t < RATE_LIMIT_WINDOW]
-    if len(_rate_store[client_ip]) >= RATE_LIMIT_MAX:
+    recent = [t for t in _rate_store.get(client_ip, []) if now - t < RATE_LIMIT_WINDOW]
+    if len(recent) >= RATE_LIMIT_MAX:
+        _rate_store[client_ip] = recent
         return False
-    _rate_store[client_ip].append(now)
+    recent.append(now)
+    _rate_store[client_ip] = recent
+    # Periodically purge stale buckets to prevent unbounded growth.
+    if len(_rate_store) > 1024:
+        for ip in list(_rate_store.keys()):
+            if not _rate_store[ip] or now - _rate_store[ip][-1] > RATE_LIMIT_WINDOW:
+                _rate_store.pop(ip, None)
     return True
 
 
@@ -191,18 +198,29 @@ def post_scoreboard(item: ScoreItem, request: Request):
 
 
 # ---------------------------------------------------------------------------
-# Helper: determine which zone a point falls in
+# Control-zone geometry (proportional to the captured image).
+# These MUST stay in sync with the CSS boxes drawn on the frontend overlay
+# (see frontend/src/components/HandControlOverlay.css). Keeping them in a
+# single dict avoids drift between what the user sees and what the backend
+# detects.
 # ---------------------------------------------------------------------------
+ZONE_RECTS = {
+    # name: (x1_frac, y1_frac, x2_frac, y2_frac)
+    "LEFT":  (0.00, 0.25, 0.30, 0.75),
+    "RIGHT": (0.70, 0.25, 1.00, 0.75),
+    "UP":    (0.35, 0.00, 0.65, 0.25),
+    "DOWN":  (0.35, 0.75, 0.65, 1.00),
+}
+
+# Minimum consecutive frames a zone must be detected before we report it.
+# This debounces false positives from the hand passing through a box.
+ZONE_CONFIRM_FRAMES = 2
+
+
 def _detect_zone(px, py, w, h):
     """Given fingertip pixel coords and image dimensions, return the zone name."""
-    zones = {
-        "LEFT":  (0, h * 0.2, w * 0.45, h * 0.8),
-        "RIGHT": (w * 0.55, h * 0.2, w, h * 0.8),
-        "UP":    (w * 0.32, 0, w * 0.68, h * 0.25),
-        "DOWN":  (w * 0.32, h * 0.75, w * 0.68, h),
-    }
-    for name, (x1, y1, x2, y2) in zones.items():
-        if x1 <= px <= x2 and y1 <= py <= y2:
+    for name, (x1f, y1f, x2f, y2f) in ZONE_RECTS.items():
+        if (x1f * w) <= px <= (x2f * w) and (y1f * h) <= py <= (y2f * h):
             return name
     return None
 
@@ -215,9 +233,17 @@ async def websocket_endpoint(websocket: WebSocket):
     await websocket.accept()
 
     if not CV_AVAILABLE:
-        await websocket.send_json({"button": None, "error": "CV libraries not installed"})
+        await websocket.send_json({"zone": None, "button": None, "error": "CV libraries not installed"})
         await websocket.close()
         return
+
+    # Per-connection state for zone debouncing. We keep the raw detected zone
+    # (what the fingertip is currently touching) plus a small counter that
+    # requires N consecutive frames before we "confirm" the zone. This avoids
+    # flicker when the hand briefly passes through a box.
+    pending_zone: str | None = None
+    pending_count: int = 0
+    confirmed_zone: str | None = None
 
     # Initialize the hand detector based on available API
     detector = None
@@ -225,7 +251,7 @@ async def websocket_endpoint(websocket: WebSocket):
         if MP_API == 'tasks':
             # New MediaPipe Tasks API
             if not os.path.exists(MODEL_PATH):
-                await websocket.send_json({"button": None, "error": f"Model file not found: {MODEL_PATH}"})
+                await websocket.send_json({"zone": None, "button": None, "error": f"Model file not found: {MODEL_PATH}"})
                 await websocket.close()
                 return
 
@@ -248,31 +274,46 @@ async def websocket_endpoint(websocket: WebSocket):
                 min_tracking_confidence=0.5,
             )
     except Exception as e:
-        await websocket.send_json({"button": None, "error": f"Failed to init hand detector: {e}"})
+        await websocket.send_json({"zone": None, "button": None, "error": f"Failed to init hand detector: {e}"})
         await websocket.close()
         return
 
     try:
         while True:
             data = await websocket.receive_text()
-            parsed = json.loads(data)
-            if "frame" not in parsed:
-                await websocket.send_json({"button": None})
+            try:
+                parsed = json.loads(data)
+            except json.JSONDecodeError:
+                await websocket.send_json({"zone": confirmed_zone, "button": confirmed_zone})
                 continue
 
-            # Decode the base64 JPEG frame from the browser
-            frame_str = parsed["frame"].split(",")[1]
-            frame_bytes = base64.b64decode(frame_str)
+            if "frame" not in parsed or not isinstance(parsed["frame"], str):
+                await websocket.send_json({"zone": confirmed_zone, "button": confirmed_zone})
+                continue
+
+            # Decode the base64 JPEG frame from the browser. The data URL
+            # prefix ("data:image/jpeg;base64,...") may or may not be present.
+            frame_field = parsed["frame"]
+            if "," in frame_field:
+                frame_str = frame_field.split(",", 1)[1]
+            else:
+                frame_str = frame_field
+            try:
+                frame_bytes = base64.b64decode(frame_str, validate=False)
+            except (ValueError, TypeError):
+                await websocket.send_json({"zone": confirmed_zone, "button": confirmed_zone})
+                continue
+
             np_arr = np.frombuffer(frame_bytes, dtype=np.uint8)
             img = cv2.imdecode(np_arr, cv2.IMREAD_COLOR)
             if img is None:
-                await websocket.send_json({"button": None})
+                await websocket.send_json({"zone": confirmed_zone, "button": confirmed_zone})
                 continue
 
             h, w, _ = img.shape
             rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
 
-            button = None
+            raw_zone: str | None = None
 
             if MP_API == 'tasks':
                 # New Tasks API: wrap in mp.Image and detect
@@ -284,7 +325,7 @@ async def websocket_endpoint(websocket: WebSocket):
                     tip = result.hand_landmarks[0][8]
                     px = int(tip.x * w)
                     py = int(tip.y * h)
-                    button = _detect_zone(px, py, w, h)
+                    raw_zone = _detect_zone(px, py, w, h)
             else:
                 # Legacy solutions API
                 results = detector.process(rgb)
@@ -292,9 +333,26 @@ async def websocket_endpoint(websocket: WebSocket):
                     tip = results.multi_hand_landmarks[0].landmark[8]
                     px = int(tip.x * w)
                     py = int(tip.y * h)
-                    button = _detect_zone(px, py, w, h)
+                    raw_zone = _detect_zone(px, py, w, h)
 
-            await websocket.send_json({"button": button})
+            # --- Confirmation debounce -------------------------------------
+            # A zone must be observed for ZONE_CONFIRM_FRAMES consecutive
+            # frames before it's reported. Leaving the zone confirms `None`
+            # immediately so the client can re-arm its edge-trigger quickly.
+            if raw_zone == pending_zone:
+                pending_count += 1
+            else:
+                pending_zone = raw_zone
+                pending_count = 1
+
+            if raw_zone is None:
+                confirmed_zone = None
+            elif pending_count >= ZONE_CONFIRM_FRAMES:
+                confirmed_zone = raw_zone
+
+            # `button` is kept for backward compatibility; `zone` is the
+            # authoritative field. Both carry the same value so either works.
+            await websocket.send_json({"zone": confirmed_zone, "button": confirmed_zone})
 
     except WebSocketDisconnect:
         print("WebSocket disconnected.")

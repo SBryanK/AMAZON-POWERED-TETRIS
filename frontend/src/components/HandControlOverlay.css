@@ -1,41 +1,86 @@
 .overlay-container {
-  position:relative;
-  width:100%;
-  height:100%;
-  overflow:hidden;
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
 }
 
 .camera-video {
-  width:100%;
-  height:100%;
-  object-fit:cover;
-  transform:scaleX(-1);
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  /* Mirror the video so the user's LEFT hand appears on the LEFT edge
+     of the screen, matching both intuition and backend zone detection
+     (the frontend also flips the JPEG it sends to the backend). */
+  transform: scaleX(-1);
 }
 
+/*
+ * Control boxes.
+ *
+ * These positions MUST stay in sync with ZONE_RECTS in backend/main.py.
+ * Using percentages keeps them proportional to the camera panel size so
+ * the box the user sees is exactly the box the backend tests the
+ * fingertip against.
+ *
+ *   LEFT  : x 0%-30%,  y 25%-75%
+ *   RIGHT : x 70%-100%,y 25%-75%
+ *   UP    : x 35%-65%, y 0%-25%
+ *   DOWN  : x 35%-65%, y 75%-100%
+ */
 .overlay-button {
-  position:absolute;
-  background:rgba(144,238,144,0.3);
-  color:#fff;
-  font-family:'FreakOfNature',cursive;
-  font-size:2rem;
-  text-align:center;
-  line-height:3;
-  border:5px solid #90ee90;
-  border-radius:12px;
-  width:250px;
-  height:120px;
-  pointer-events:none;
+  position: absolute;
+  background: rgba(144, 238, 144, 0.18);
+  color: #fff;
+  font-family: 'FreakOfNature', cursive;
+  font-size: 2rem;
+  text-align: center;
+  border: 4px solid rgba(144, 238, 144, 0.9);
+  border-radius: 12px;
+  box-sizing: border-box;
+  pointer-events: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.6);
+  transition: background 80ms ease-out, border-color 80ms ease-out,
+              box-shadow 80ms ease-out, transform 80ms ease-out;
 }
 
 .top-button {
-  top:10px; left:50%; transform:translateX(-50%);
+  top: 0%;
+  left: 35%;
+  width: 30%;
+  height: 25%;
 }
+
 .bottom-button {
-  bottom:10px; left:50%; transform:translateX(-50%);
+  top: 75%;
+  left: 35%;
+  width: 30%;
+  height: 25%;
 }
+
 .left-button {
-  left:10px; top:50%; transform:translateY(-50%);
+  top: 25%;
+  left: 0%;
+  width: 30%;
+  height: 50%;
 }
+
 .right-button {
-  right:10px; top:50%; transform:translateY(-50%);
+  top: 25%;
+  left: 70%;
+  width: 30%;
+  height: 50%;
+}
+
+/* Active state: zone confirmed by backend. Makes the touched box flash
+   brightly so the user gets instant "key pressed" feedback. */
+.overlay-button.active {
+  background: rgba(80, 255, 120, 0.55);
+  border-color: #b6ff9e;
+  box-shadow: 0 0 24px rgba(120, 255, 140, 0.9),
+              inset 0 0 18px rgba(255, 255, 255, 0.35);
+  transform: scale(1.04);
 }

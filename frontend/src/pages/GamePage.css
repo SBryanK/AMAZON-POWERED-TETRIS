@@ -20,20 +20,37 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: flex-start;
+  /* space-between keeps the board anchored to the top of the available area
+     and the button row pinned to the bottom, so the two regions can never
+     visually overlap regardless of board size. */
+  justify-content: space-between;
+  padding: 12px 0 16px;
+  box-sizing: border-box;
   position: relative;
+  gap: 12px;
+  overflow: hidden;
 }
+/* The first child of .tetris-panel is the <Tetris> forwardRef wrapper. We
+   constrain it to the space that's actually available (panel height minus
+   the button row + padding) so the board can never bleed into the buttons. */
 .tetris-panel > div:first-child {
-  flex: 1;
+  flex: 1 1 auto;
+  min-height: 0;           /* allow flex child to shrink below content size */
+  width: 100%;
   display: flex;
   align-items: center;
   justify-content: center;
+  overflow: hidden;
 }
 
 .panel-buttons {
+  /* flex-shrink:0 guarantees the button row never gets squeezed away and
+     never gets painted under the board. */
+  flex: 0 0 auto;
   display: flex;
   gap: 12px;
-  margin-bottom: 16px;
+  margin: 0;
+  z-index: 2;
 }
 .pause-btn, .sound-btn {
   background: #333;
@@ -43,11 +60,16 @@
   padding: 8px 24px;
   font-size: 1.5rem;
   cursor: pointer;
-  transition: background 0.2s, transform 0.1s;
+  transition: background 0.2s, transform 0.1s, border-color 0.2s;
+  min-width: 64px;
 }
 .pause-btn:hover, .sound-btn:hover {
   background: #555;
   transform: scale(1.05);
+}
+.sound-btn.muted {
+  border-color: #a33;
+  color: #f88;
 }
 
 /* ===== Right Container (70%) ===== */

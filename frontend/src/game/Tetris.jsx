@@ -130,7 +130,13 @@ const Tetris = forwardRef(({
       move({ keyCode: 38 })
       soundManager.rotate()
     },
-    setSoftDropping: (active) => setSoftDropping(active),
+    setSoftDropping: (active) => {
+      // Never let an external caller (WebSocket or keyboard) latch soft-drop
+      // ON while the game is paused or finished — if we did, the piece would
+      // immediately start dropping the instant the game resumed.
+      if (active && (gameOver || gameOverExternal)) return
+      setSoftDropping(!!active)
+    },
     hardDrop: () => performHardDrop(),
     holdPiece: () => performHold(),
     getStats: () => ({ ...statsRef.current }),

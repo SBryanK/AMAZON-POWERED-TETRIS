@@ -8,7 +8,7 @@ import config from '../config'
 import soundManager from '../game/SoundManager'
 import './GamePage.css'
 
-const COMMAND_THROTTLE_MS = 600
+const COMMAND_THROTTLE_MS = 90 // only used as a safety floor between edge re-triggers
 const WS_RECONNECT_DELAY = 2000
 
 const GamePage = () => {
@@ -30,12 +30,22 @@ const GamePage = () => {
   const [stats, setStats] = useState({ piecesPlaced: 0, tetrisCount: 0, linesCleared: 0 })
   const [lineClearFlash, setLineClearFlash] = useState(false)
   const [showStats, setShowStats] = useState(false)
+  // Currently-touched control zone (reported by the backend). Passed to the
+  // overlay so the corresponding box lights up while the user is in it.
+  const [activeZone, setActiveZone] = useState(null)
 
   const tetrisRef = useRef(null)
   const navigate = useNavigate()
 
-  const lastCommandRef = useRef(null)
-  const lastTimeRef = useRef(0)
+  // Edge-trigger state machine for hand-gesture input.
+  // `prevZoneRef` holds the last zone we observed from the backend so we can
+  // detect null->ZONE and ZONE->OTHER transitions. For discrete actions
+  // (LEFT/RIGHT/UP) a move fires ONLY on the entering edge; the user must
+  // leave the box and come back to re-fire. DOWN is held-key semantics:
+  // soft-drop starts when the zone becomes DOWN and ends the moment it is
+  // no longer DOWN.
+  const prevZoneRef = useRef(null)
+  const lastEdgeTimeRef = useRef(0)
   const gameOverRef = useRef(false)
   const pausedRef = useRef(false)
 
@@ -79,31 +89,66 @@ const GamePage = () => {
     socket.onopen = () => { setWsConnected(true) }
     socket.onclose = () => {
       setWsConnected(false)
+      setActiveZone(null)
+      // Ensure we don't leave soft-drop latched on if the connection dies
+      // while the hand happened to be over the DOWN box.
+      tetrisRef.current?.setSoftDropping(false)
+      prevZoneRef.current = null
       if (!gameOverRef.current) {
         setTimeout(() => connectWebSocket(), WS_RECONNECT_DELAY)
       }
     }
     socket.onerror = () => { socket.close() }
     socket.onmessage = (evt) => {
-      if (gameOverRef.current || pausedRef.current) return
-      const now = Date.now()
-      try {
-        const data = JSON.parse(evt.data)
-        if (!data.button || !tetrisRef.current) {
-          tetrisRef.current?.setSoftDropping(false)
-          return
+      if (gameOverRef.current || pausedRef.current) {
+        tetrisRef.current?.setSoftDropping(false)
+        return
+      }
+      let data
+      try { data = JSON.parse(evt.data) } catch (err) {
+        console.error('WS parse error:', err)
+        return
+      }
+      // Backend sends both `zone` (new) and `button` (legacy alias). Accept
+      // either so this code keeps working if the backend is ever rolled back.
+      const zone = (data.zone !== undefined ? data.zone : data.button) || null
+      setActiveZone(zone)
+
+      const prev = prevZoneRef.current
+      const tetris = tetrisRef.current
+      if (!tetris) { prevZoneRef.current = zone; return }
+
+      // --- Held-key semantics for DOWN (soft-drop) ---------------------
+      // Continuous while the hand is inside the DOWN box; released the
+      // instant it leaves. This mirrors pressing & holding the keyboard
+      // Down arrow.
+      if (zone === 'DOWN' && prev !== 'DOWN') {
+        tetris.setSoftDropping(true)
+      } else if (zone !== 'DOWN' && prev === 'DOWN') {
+        tetris.setSoftDropping(false)
+      }
+
+      // --- Edge-trigger semantics for LEFT / RIGHT / UP ----------------
+      // Fire EXACTLY ONCE when the zone transitions from anything-else to
+      // the target zone. To fire again, the user must leave the box
+      // (zone becomes null or a different zone) and re-enter.
+      if (zone && zone !== prev && zone !== 'DOWN') {
+        const now = Date.now()
+        // Safety floor: never fire two discrete moves closer than ~90ms,
+        // which is faster than any real human re-entry but prevents a
+        // pathological flicker from producing a double-tap.
+        if (now - lastEdgeTimeRef.current >= COMMAND_THROTTLE_MS) {
+          lastEdgeTimeRef.current = now
+          switch (zone) {
+            case 'LEFT':  tetris.moveLeft();  break
+            case 'RIGHT': tetris.moveRight(); break
+            case 'UP':    tetris.rotate();    break
+            default: break
+          }
         }
-        if (data.button === lastCommandRef.current && (now - lastTimeRef.current) < COMMAND_THROTTLE_MS) return
-        lastCommandRef.current = data.button
-        lastTimeRef.current = now
-        switch (data.button) {
-          case 'LEFT': tetrisRef.current.moveLeft(); break
-          case 'RIGHT': tetrisRef.current.moveRight(); break
-          case 'UP': tetrisRef.current.rotate(); break
-          case 'DOWN': tetrisRef.current.setSoftDropping(true); break
-          default: break
-        }
-      } catch (err) { console.error('WS parse error:', err) }
+      }
+
+      prevZoneRef.current = zone
     }
     setWs(socket)
     return socket
@@ -111,8 +156,23 @@ const GamePage = () => {
 
   useEffect(() => {
     const socket = connectWebSocket()
-    return () => socket.close()
+    return () => {
+      // Best-effort cleanup: stop any active soft-drop before tearing down
+      // the socket so a piece doesn't keep auto-dropping through the next
+      // render.
+      tetrisRef.current?.setSoftDropping(false)
+      prevZoneRef.current = null
+      socket.close()
+    }
   }, [connectWebSocket])
+
+  // If the game is paused or ends while the hand is still hovering DOWN,
+  // explicitly release soft-drop so it doesn't resume on unpause.
+  useEffect(() => {
+    if (paused || gameOver) {
+      tetrisRef.current?.setSoftDropping(false)
+    }
+  }, [paused, gameOver])
 
   // Global keyboard controls
   useEffect(() => {
@@ -250,7 +310,12 @@ const GamePage = () => {
           <button className="pause-btn" onClick={togglePause}>
             {paused ? '▶' : '⏸'}
           </button>
-          <button className="sound-btn" onClick={toggleSound}>
+          <button
+            className={`sound-btn ${soundEnabled ? '' : 'muted'}`}
+            onClick={toggleSound}
+            title={soundEnabled ? 'Mute sound (M)' : 'Unmute sound (M)'}
+            aria-pressed={!soundEnabled}
+          >
             {soundEnabled ? '🔊' : '🔇'}
           </button>
         </div>
@@ -277,7 +342,7 @@ const GamePage = () => {
           </div>
         </div>
         <div className="camera-panel">
-          <HandControlOverlay ws={ws} />
+          <HandControlOverlay ws={ws} activeZone={activeZone} />
         </div>
       </div>
 

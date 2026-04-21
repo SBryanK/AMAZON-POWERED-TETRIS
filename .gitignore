@@ -6,6 +6,12 @@ __pycache__/
 .eggs/
 *.egg
 
+# Python virtual environments
+venv/
+.venv/
+env/
+ENV/
+
 # SQLite databases (generated at runtime)
 *.db
 
