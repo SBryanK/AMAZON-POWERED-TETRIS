@@ -2,6 +2,8 @@
 
 A computer-vision-controlled Tetris game where you play using **hand gestures** detected via your webcam. Built with React, FastAPI, MediaPipe, and deployable on AWS ECS/Fargate.
 
+> 📚 **Deep documentation**: see the [`docs/`](./docs/README.md) folder for chapter-by-chapter walkthroughs of the architecture, backend internals, game engine, gesture pipeline, sound system, deployment, testing, and a full bugfix history.
+
 ## Architecture
 
 ```
